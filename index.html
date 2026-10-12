@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日語單字學習系統</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>日語單字學習系統</h1>
+        </header>
+
+        <main>
+            <!-- 編輯與管理區塊 -->
+            <section id="management-section">
+                <div class="card">
+                    <h2>1. 單元管理</h2>
+                    <div class="input-group">
+                        <input type="text" id="new-unit-name" placeholder="輸入新單元名稱">
+                        <button id="add-unit-btn">新增單元</button>
+                    </div>
+                    <select id="unit-select">
+                        <option value="">請選擇單元...</option>
+                    </select>
+                </div>
+
+                <div class="card" id="word-management" style="display: none;">
+                    <h2>2. 新增單字</h2>
+                    <div class="input-group">
+                        <input type="text" id="new-jp-word" placeholder="日文 (例如: 食べる)">
+                        <input type="text" id="new-zh-word" placeholder="中文翻譯 (例如: 吃)">
+                        <button id="add-word-btn">新增</button>
+                    </div>
+                    <ul id="word-list"></ul>
+                </div>
+
+                <div class="card" id="quiz-selection" style="display: none;">
+                    <h2>3. 測驗模式</h2>
+                    <div class="button-group">
+                        <button class="mode-btn" data-mode="1">給中文選日文 (選擇題)</button>
+                        <button class="mode-btn" data-mode="2">給日文選中文 (選擇題)</button>
+                        <button class="mode-btn" data-mode="3">給中文拼日文 (拼寫題)</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 測驗進行區塊 -->
+            <section id="quiz-section" style="display: none;">
+                <div class="card">
+                    <div class="quiz-header">
+                        <span id="quiz-progress"></span>
+                        <button id="exit-quiz-btn">結束測驗</button>
+                    </div>
+                    <h2 id="question-text">題目</h2>
+
+                    <!-- 選擇題選項容器 -->
+                    <div id="options-container" class="options-grid"></div>
+
+                    <!-- 拼寫題輸入容器 -->
+                    <div id="typing-container" style="display: none;">
+                        <input type="text" id="typing-input" placeholder="請輸入日文拼寫" autocomplete="off">
+                        <button id="submit-typing-btn">送出</button>
+                    </div>
+
+                    <div id="feedback" class="feedback"></div>
+                    <button id="next-question-btn" style="display: none;">下一題</button>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
