@@ -10,6 +10,11 @@
     <div id="app">
         <header>
             <h1>日語單字學習系統</h1>
+            <div class="account-bar">
+                <span id="auth-status">尚未登入</span>
+                <button id="google-sign-in-btn" type="button">使用 Google 登入</button>
+                <button id="sign-out-btn" type="button" style="display: none;">登出</button>
+            </div>
         </header>
 
         <main>
@@ -70,6 +75,6 @@
             </section>
         </main>
     </div>
-    <script src="script.js"></script>
+    <script type="module" src="script.js"></script>
 </body>
 </html>

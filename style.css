@@ -25,6 +25,19 @@ header h1 {
     color: var(--primary-color);
 }
 
+.account-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.account-bar button {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+}
+
 .card {
     background: white;
     border-radius: 8px;
@@ -95,6 +108,23 @@ button:disabled {
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+#word-list li span {
+    overflow-wrap: anywhere;
+}
+
+.delete-word-btn {
+    flex-shrink: 0;
+    padding: 6px 10px;
+    background-color: var(--error-color);
+    font-size: 0.9rem;
+}
+
+.delete-word-btn:hover {
+    background-color: #c0392b;
 }
 
 .quiz-header {

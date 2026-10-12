@@ -1,29 +1,16 @@
-const STORAGE_KEY = 'jp_vocab_units';
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { firebaseConfig } from './firebase-config.js';
 
-// 從 LocalStorage 載入歷史資料，確保重新整理或關閉網頁後資料仍然存在
-function loadData() {
-    try {
-        const savedData = localStorage.getItem(STORAGE_KEY);
-        if (!savedData) return [];
+const firebaseConfigured = !firebaseConfig.apiKey.startsWith('請填入');
+const firebaseApp = firebaseConfigured ? initializeApp(firebaseConfig) : null;
+const auth = firebaseApp ? getAuth(firebaseApp) : null;
+const db = firebaseApp ? getFirestore(firebaseApp) : null;
+const googleProvider = new GoogleAuthProvider();
 
-        const parsedData = JSON.parse(savedData);
-        if (!Array.isArray(parsedData)) {
-            throw new Error('保存的單元資料格式不正確');
-        }
-
-        return parsedData.filter(unit =>
-            unit &&
-            typeof unit.name === 'string' &&
-            Array.isArray(unit.words)
-        );
-    } catch (error) {
-        console.error('載入單元資料失敗：', error);
-        alert('無法讀取已保存的單元資料，請檢查瀏覽器儲存空間。');
-        return [];
-    }
-}
-
-let units = loadData();
+let currentUser = null;
+let units = [];
 let currentUnitIndex = -1;
 
 // 測驗狀態變數
@@ -44,9 +31,35 @@ const feedback = document.getElementById('feedback');
 const nextBtn = document.getElementById('next-question-btn');
 const typingInput = document.getElementById('typing-input');
 const submitTypingBtn = document.getElementById('submit-typing-btn');
+const authStatus = document.getElementById('auth-status');
+const signInBtn = document.getElementById('google-sign-in-btn');
+const signOutBtn = document.getElementById('sign-out-btn');
 
 function init() {
     updateUnitSelect();
+    setEditorEnabled(false);
+
+    signInBtn.addEventListener('click', async () => {
+        if (!auth) {
+            alert('請先在 firebase-config.js 填入 Firebase Web 設定。');
+            return;
+        }
+        try {
+            await signInWithPopup(auth, googleProvider);
+        } catch (error) {
+            console.error('Google 登入失敗：', error);
+            alert(`Google 登入失敗：${error.message}`);
+        }
+    });
+
+    signOutBtn.addEventListener('click', async () => {
+        try {
+            await signOut(auth);
+        } catch (error) {
+            console.error('登出失敗：', error);
+            alert(`登出失敗：${error.message}`);
+        }
+    });
     
     // 註冊事件：新增單元
     document.getElementById('add-unit-btn').addEventListener('click', () => {
@@ -100,15 +113,64 @@ function init() {
     typingInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') checkTypingAnswer();
     });
+
+    if (auth) {
+        onAuthStateChanged(auth, handleAuthStateChanged);
+    } else {
+        authStatus.textContent = '尚未設定 Firebase';
+    }
 }
 
-function saveData() {
+async function loadCloudData(user) {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(units));
+        const snapshot = await getDoc(doc(db, 'users', user.uid));
+        const cloudUnits = snapshot.exists() ? snapshot.data().units : [];
+        units = Array.isArray(cloudUnits) ? cloudUnits : [];
+        updateUnitSelect();
     } catch (error) {
-        console.error('保存單元資料失敗：', error);
-        alert('單元無法保存，請確認瀏覽器允許此網站使用儲存空間。');
+        console.error('載入雲端單字失敗：', error);
+        alert(`無法載入雲端單字：${error.message}`);
     }
+}
+
+async function saveData() {
+    if (!currentUser) return;
+    try {
+        await setDoc(doc(db, 'users', currentUser.uid), {
+            units,
+            updatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('保存雲端單字失敗：', error);
+        alert(`單字無法保存到雲端：${error.message}`);
+    }
+}
+
+async function handleAuthStateChanged(user) {
+    currentUser = user;
+    if (!user) {
+        units = [];
+        currentUnitIndex = -1;
+        updateUnitSelect();
+        setEditorEnabled(false);
+        authStatus.textContent = '尚未登入';
+        signInBtn.style.display = 'inline-block';
+        signOutBtn.style.display = 'none';
+        return;
+    }
+
+    authStatus.textContent = `已登入：${user.displayName || user.email}`;
+    signInBtn.style.display = 'none';
+    signOutBtn.style.display = 'inline-block';
+    setEditorEnabled(true);
+    await loadCloudData(user);
+}
+
+function setEditorEnabled(enabled) {
+    document.querySelectorAll('#management-section input, #management-section select, #management-section button')
+        .forEach(element => {
+            element.disabled = !enabled;
+        });
 }
 
 function updateUnitSelect() {
@@ -141,14 +203,49 @@ function renderWordList() {
     const words = units[currentUnitIndex].words;
     
     // 反轉陣列，讓最新加入的單字顯示在最上面
-    [...words].reverse().forEach(word => {
+    [...words].reverse().forEach((word, reversedIndex) => {
+        const wordIndex = words.length - 1 - reversedIndex;
         const li = document.createElement('li');
-        li.textContent = `${word.jp} - ${word.zh}`;
+
+        const wordText = document.createElement('span');
+        wordText.textContent = `${word.jp} - ${word.zh}`;
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'delete-word-btn';
+        deleteButton.textContent = '刪除';
+        deleteButton.setAttribute('aria-label', `刪除單字 ${word.jp}`);
+        deleteButton.addEventListener('click', () => {
+            deleteWord(wordIndex);
+        });
+
+        li.appendChild(wordText);
+        li.appendChild(deleteButton);
         wordList.appendChild(li);
     });
     
     // 同步更新單元選單上的字數顯示
     unitSelect.options[unitSelect.selectedIndex].textContent = `${units[currentUnitIndex].name} (${words.length} 字)`;
+}
+
+function deleteWord(wordIndex) {
+    if (currentUnitIndex === -1) return;
+
+    const words = units[currentUnitIndex].words;
+    if (!Number.isInteger(wordIndex) || wordIndex < 0 || wordIndex >= words.length) {
+        return;
+    }
+
+    const word = words[wordIndex];
+    if (!confirm(`確定要刪除「${word.jp} - ${word.zh}」嗎？`)) {
+        return;
+    }
+
+    words.splice(wordIndex, 1);
+    saveData();
+    renderWordList();
+    updateUnitSelect();
+    unitSelect.value = currentUnitIndex;
 }
 
 // 陣列洗牌演算法 (Fisher-Yates Shuffle)
