@@ -36,6 +36,7 @@ const signInBtn = document.getElementById('google-sign-in-btn');
 const signOutBtn = document.getElementById('sign-out-btn');
 const csvFileInput = document.getElementById('csv-file-input');
 const importCsvBtn = document.getElementById('import-csv-btn');
+const deleteUnitBtn = document.getElementById('delete-unit-btn');
 
 function init() {
     updateUnitSelect();
@@ -78,6 +79,7 @@ function init() {
     });
 
     importCsvBtn.addEventListener('click', importCsvUnit);
+    deleteUnitBtn.addEventListener('click', deleteCurrentUnit);
 
     // 註冊事件：選擇單元
     unitSelect.addEventListener('change', handleUnitChange);
@@ -175,6 +177,11 @@ function setEditorEnabled(enabled) {
         .forEach(element => {
             element.disabled = !enabled;
         });
+    updateDeleteUnitButton();
+}
+
+function updateDeleteUnitButton() {
+    deleteUnitBtn.disabled = !currentUser || currentUnitIndex === -1;
 }
 
 async function importCsvUnit() {
@@ -290,6 +297,23 @@ function handleUnitChange() {
         wordManagement.style.display = 'none';
         quizSelection.style.display = 'none';
     }
+    updateDeleteUnitButton();
+}
+
+async function deleteCurrentUnit() {
+    if (currentUnitIndex === -1 || !currentUser) return;
+
+    const unit = units[currentUnitIndex];
+    if (!confirm(`確定要刪除單元「${unit.name}」及其中的 ${unit.words.length} 個單字嗎？`)) {
+        return;
+    }
+
+    units.splice(currentUnitIndex, 1);
+    currentUnitIndex = -1;
+    await saveData();
+    updateUnitSelect();
+    unitSelect.value = '';
+    handleUnitChange();
 }
 
 function renderWordList() {

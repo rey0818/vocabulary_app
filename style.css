@@ -94,6 +94,15 @@ button:hover {
     background-color: #357abd;
 }
 
+.danger-btn {
+    margin-top: 10px;
+    background-color: var(--error-color);
+}
+
+.danger-btn:hover {
+    background-color: #c0392b;
+}
+
 button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
