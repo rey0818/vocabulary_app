@@ -59,6 +59,18 @@ h2 {
     margin-bottom: 15px;
 }
 
+.import-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    align-items: center;
+}
+
+input[type="file"] {
+    flex: 1;
+    min-width: 0;
+}
+
 input[type="text"], select {
     flex: 1;
     padding: 10px;

@@ -34,6 +34,8 @@ const submitTypingBtn = document.getElementById('submit-typing-btn');
 const authStatus = document.getElementById('auth-status');
 const signInBtn = document.getElementById('google-sign-in-btn');
 const signOutBtn = document.getElementById('sign-out-btn');
+const csvFileInput = document.getElementById('csv-file-input');
+const importCsvBtn = document.getElementById('import-csv-btn');
 
 function init() {
     updateUnitSelect();
@@ -74,6 +76,8 @@ function init() {
             handleUnitChange();
         }
     });
+
+    importCsvBtn.addEventListener('click', importCsvUnit);
 
     // 註冊事件：選擇單元
     unitSelect.addEventListener('change', handleUnitChange);
@@ -171,6 +175,97 @@ function setEditorEnabled(enabled) {
         .forEach(element => {
             element.disabled = !enabled;
         });
+}
+
+async function importCsvUnit() {
+    const nameInput = document.getElementById('new-unit-name');
+    const unitName = nameInput.value.trim();
+    const file = csvFileInput.files[0];
+
+    if (!unitName) {
+        alert('請先輸入單元名稱。');
+        nameInput.focus();
+        return;
+    }
+    if (!file) {
+        alert('請先選擇 CSV 檔案。');
+        return;
+    }
+
+    try {
+        const csvText = await file.text();
+        const words = parseCsvWords(csvText);
+        if (words.length === 0) {
+            throw new Error('CSV 檔案沒有可匯入的單字。');
+        }
+
+        units.push({ id: Date.now(), name: unitName, words });
+        await saveData();
+        updateUnitSelect();
+        nameInput.value = '';
+        csvFileInput.value = '';
+        unitSelect.value = units.length - 1;
+        handleUnitChange();
+        alert(`已建立單元「${unitName}」，匯入 ${words.length} 個單字。`);
+    } catch (error) {
+        console.error('匯入 CSV 失敗：', error);
+        alert(`匯入失敗：${error.message}`);
+    }
+}
+
+function parseCsvWords(csvText) {
+    const rows = [];
+    let row = [];
+    let field = '';
+    let isQuoted = false;
+
+    for (let index = 0; index < csvText.length; index++) {
+        const character = csvText[index];
+        const nextCharacter = csvText[index + 1];
+
+        if (character === '"' && isQuoted && nextCharacter === '"') {
+            field += '"';
+            index++;
+        } else if (character === '"') {
+            isQuoted = !isQuoted;
+        } else if (character === ',' && !isQuoted) {
+            row.push(field);
+            field = '';
+        } else if ((character === '\n' || character === '\r') && !isQuoted) {
+            if (character === '\r' && nextCharacter === '\n') index++;
+            row.push(field);
+            rows.push(row);
+            row = [];
+            field = '';
+        } else {
+            field += character;
+        }
+    }
+
+    if (field || row.length > 0) {
+        row.push(field);
+        rows.push(row);
+    }
+
+    const dataRows = rows
+        .map(columns => columns.map(column => column.trim()))
+        .filter(columns => columns.some(Boolean));
+    const startIndex = isHeaderRow(dataRows[0]) ? 1 : 0;
+
+    return dataRows.slice(startIndex).map((columns, rowIndex) => {
+        if (columns.length < 2 || !columns[0] || !columns[1]) {
+            throw new Error(`第 ${rowIndex + startIndex + 1} 列格式錯誤，請提供日文與中文。`);
+        }
+        return { jp: columns[0], zh: columns[1] };
+    });
+}
+
+function isHeaderRow(columns) {
+    if (!columns || columns.length < 2) return false;
+    const headerText = `${columns[0]} ${columns[1]}`.toLowerCase();
+    return headerText.includes('日文') || headerText.includes('中文') ||
+        headerText.includes('japanese') || headerText.includes('chinese') ||
+        (columns[0].toLowerCase() === 'jp' && columns[1].toLowerCase() === 'zh');
 }
 
 function updateUnitSelect() {
