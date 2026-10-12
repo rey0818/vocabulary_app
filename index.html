@@ -18,6 +18,27 @@
         </header>
 
         <main>
+            <section id="streak-section">
+                <div class="card streak-card">
+                    <div class="streak-summary">
+                        <div>
+                            <span class="streak-label">目前連勝</span>
+                            <strong id="current-streak">0 天</strong>
+                        </div>
+                        <div>
+                            <span class="streak-label">最佳連勝</span>
+                            <strong id="best-streak">0 天</strong>
+                        </div>
+                        <span id="streak-message">登入後開始累積學習連勝！</span>
+                    </div>
+                    <div class="calendar-header">
+                        <h2 id="calendar-month"></h2>
+                        <span>完成測驗即可點亮今天</span>
+                    </div>
+                    <div id="streak-calendar" class="streak-calendar"></div>
+                </div>
+            </section>
+
             <!-- 編輯與管理區塊 -->
             <section id="management-section">
                 <div class="card">

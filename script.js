@@ -11,6 +11,7 @@ const googleProvider = new GoogleAuthProvider();
 
 let currentUser = null;
 let units = [];
+let completedDates = [];
 let currentUnitIndex = -1;
 
 // 測驗狀態變數
@@ -37,9 +38,106 @@ const signOutBtn = document.getElementById('sign-out-btn');
 const csvFileInput = document.getElementById('csv-file-input');
 const importCsvBtn = document.getElementById('import-csv-btn');
 const deleteUnitBtn = document.getElementById('delete-unit-btn');
+const currentStreakElement = document.getElementById('current-streak');
+const bestStreakElement = document.getElementById('best-streak');
+const streakMessage = document.getElementById('streak-message');
+const calendarMonth = document.getElementById('calendar-month');
+const streakCalendar = document.getElementById('streak-calendar');
+
+function getLocalDateKey(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getDateFromKey(dateKey) {
+    const [year, month, day] = dateKey.split('-').map(Number);
+    return new Date(year, month - 1, day);
+}
+
+function calculateStreaks() {
+    const dates = [...new Set(completedDates)]
+        .filter(dateKey => /^\d{4}-\d{2}-\d{2}$/.test(dateKey))
+        .sort();
+    const dateSet = new Set(dates);
+    const today = new Date();
+    let current = 0;
+    let cursor = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    while (dateSet.has(getLocalDateKey(cursor))) {
+        current++;
+        cursor.setDate(cursor.getDate() - 1);
+    }
+
+    let best = 0;
+    let run = 0;
+    let previousDate = null;
+    dates.forEach(dateKey => {
+        const date = getDateFromKey(dateKey);
+        if (previousDate && (date - previousDate) / 86400000 === 1) {
+            run++;
+        } else {
+            run = 1;
+        }
+        best = Math.max(best, run);
+        previousDate = date;
+    });
+
+    return { current, best, dateSet };
+}
+
+function renderStreak() {
+    const { current, best, dateSet } = calculateStreaks();
+    currentStreakElement.textContent = `${current} 天`;
+    bestStreakElement.textContent = `${best} 天`;
+    streakMessage.textContent = current > 0
+        ? '今日已完成學習，連勝繼續！'
+        : '今天完成一次完整測驗，就能開始連勝！';
+
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    calendarMonth.textContent = `${year} 年 ${month + 1} 月`;
+    streakCalendar.innerHTML = '';
+    ['日', '一', '二', '三', '四', '五', '六'].forEach(day => {
+        const weekday = document.createElement('span');
+        weekday.className = 'calendar-weekday';
+        weekday.textContent = day;
+        streakCalendar.appendChild(weekday);
+    });
+
+    for (let index = 0; index < new Date(year, month, 1).getDay(); index++) {
+        const emptyDay = document.createElement('span');
+        emptyDay.className = 'calendar-day empty';
+        streakCalendar.appendChild(emptyDay);
+    }
+
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayKey = getLocalDateKey(today);
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateKey = getLocalDateKey(new Date(year, month, day));
+        const dayElement = document.createElement('span');
+        dayElement.className = 'calendar-day';
+        if (dateSet.has(dateKey)) dayElement.classList.add('completed');
+        if (dateKey === todayKey) dayElement.classList.add('today');
+        dayElement.textContent = day;
+        streakCalendar.appendChild(dayElement);
+    }
+}
+
+async function recordStudyDay() {
+    const todayKey = getLocalDateKey();
+    if (!completedDates.includes(todayKey)) {
+        completedDates.push(todayKey);
+        await saveData();
+    }
+    renderStreak();
+}
 
 function init() {
     updateUnitSelect();
+    renderStreak();
     setEditorEnabled(false);
 
     signInBtn.addEventListener('click', async () => {
@@ -47,6 +145,7 @@ function init() {
             alert('請先在 firebase-config.js 填入 Firebase Web 設定。');
             return;
         }
+
         try {
             await signInWithPopup(auth, googleProvider);
         } catch (error) {
@@ -130,9 +229,12 @@ function init() {
 async function loadCloudData(user) {
     try {
         const snapshot = await getDoc(doc(db, 'users', user.uid));
-        const cloudUnits = snapshot.exists() ? snapshot.data().units : [];
+        const cloudData = snapshot.exists() ? snapshot.data() : {};
+        const cloudUnits = cloudData.units;
         units = Array.isArray(cloudUnits) ? cloudUnits : [];
+        completedDates = Array.isArray(cloudData.completedDates) ? cloudData.completedDates : [];
         updateUnitSelect();
+        renderStreak();
     } catch (error) {
         console.error('載入雲端單字失敗：', error);
         alert(`無法載入雲端單字：${error.message}`);
@@ -144,6 +246,7 @@ async function saveData() {
     try {
         await setDoc(doc(db, 'users', currentUser.uid), {
             units,
+            completedDates,
             updatedAt: new Date().toISOString()
         });
     } catch (error) {
@@ -156,8 +259,10 @@ async function handleAuthStateChanged(user) {
     currentUser = user;
     if (!user) {
         units = [];
+        completedDates = [];
         currentUnitIndex = -1;
         updateUnitSelect();
+        renderStreak();
         setEditorEnabled(false);
         authStatus.textContent = '尚未登入';
         signInBtn.style.display = 'inline-block';
@@ -409,8 +514,9 @@ function endQuiz() {
     unitSelect.value = currentUnitIndex;
 }
 
-function loadNextQuestion() {
+async function loadNextQuestion() {
     if (quizQueue.length === 0) {
+        await recordStudyDay();
         alert('本單元測驗完成！');
         endQuiz();
         return;
