@@ -26,6 +26,7 @@ const quizSelection = document.getElementById('quiz-selection');
 const wordList = document.getElementById('word-list');
 const managementSection = document.getElementById('management-section');
 const quizSection = document.getElementById('quiz-section');
+const streakSection = document.getElementById('streak-section');
 const optionsContainer = document.getElementById('options-container');
 const typingContainer = document.getElementById('typing-container');
 const feedback = document.getElementById('feedback');
@@ -503,6 +504,7 @@ function startQuiz(mode) {
     
     managementSection.style.display = 'none';
     quizSection.style.display = 'block';
+    streakSection.style.display = 'none';
     
     loadNextQuestion();
 }
@@ -510,6 +512,7 @@ function startQuiz(mode) {
 function endQuiz() {
     managementSection.style.display = 'block';
     quizSection.style.display = 'none';
+    streakSection.style.display = 'block';
     updateUnitSelect();
     unitSelect.value = currentUnitIndex;
 }
