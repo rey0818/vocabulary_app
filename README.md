@@ -1,12 +1,14 @@
 # 日語單字學習系統
 
-一個使用 Google 帳戶登入的日語單字學習網站。單字資料會保存到 Firebase Cloud Firestore，因此使用同一個 Google 帳戶登入時，可以在電腦、手機與其他設備讀取相同資料。
+一個使用 Google 帳戶登入的日語單字學習網站。登入後即可建立自己的單字單元、記錄筆記、標註 Star，並透過測驗複習。
 
 ## 功能
 
 - 使用 Google 帳戶登入與登出
 - 建立不同的單字單元
 - 新增日文單字與中文翻譯
+- 點擊單字編寫個人筆記
+- 將單字標註為 Star，集中查看與複習
 - 刪除不需要的單字
 - 三種測驗模式：
   - 給中文選日文
@@ -15,6 +17,9 @@
 - 單字資料跨設備同步
 - 每個 Google 帳戶使用獨立的單字資料
 - 完成完整測驗後累積每日連勝與學習日曆
+- Star 測驗可依全部單元或指定單元篩選
+- 每個帳號自動建立「基本日期與星期」預設單元
+- 公開 Block：上傳與下載大家分享的單元
 
 ## 使用方式
 
@@ -23,6 +28,8 @@
 開啟網站後，按下「使用 Google 登入」，使用要同步資料的 Google 帳戶登入。
 
 登入完成後，畫面會顯示帳戶名稱，單元與單字管理功能也會解鎖。
+
+第一次登入時，系統會自動建立「基本日期與星期」單元，內容包含 1 月至 12 月、1 日至 31 日，以及星期一至星期日；每個單字依序顯示日文漢字、平假名與中文，例如「一月（いちがつ）－1月」。
 
 ### 2. 建立單元
 
@@ -75,51 +82,18 @@ CSV 每列使用以下格式：
 
 測驗結束後會自動返回單元管理畫面，也可以隨時按「結束測驗」離開。
 
-## 跨設備同步
+### 6. 筆記與 Star
 
-單字不是保存於某一台電腦的瀏覽器檔案，而是保存於 Firebase Cloud Firestore。只要：
+在單字清單點擊單字即可展開筆記欄位，儲存後筆記會跟著帳戶同步。點擊右側的星號可標註或取消 Star。登入後的「Star 單字」區會列出收藏內容，可以選擇「全部單元」或指定單元，再使用三種測驗模式複習。
 
-1. 在不同設備開啟同一個網站。
-2. 使用相同的 Google 帳戶登入。
+### 7. 公開 Block
 
-就能取得同一份單字與單元資料。
+在選擇單元後按「上傳目前單元到 Block」，即可將單元名稱與日文、中文單字分享給其他登入者。公開 Block 會列出最多 100 個公開單元，其他人可按「下載到我的單元」複製一份到自己的帳號。下載後可以自行修改、加筆記與標註 Star；原分享單元不會被修改。為保護個人資料，上傳時不會包含筆記與 Star 狀態。
 
-不同 Google 帳戶之間的資料互相獨立。
+你上傳的單元會顯示「撤回上傳」按鈕。按下後確認即可從公開 Block 移除，其他人之後就無法再從 Block 下載；已經下載到其他帳號的副本不會受到影響。
 
-## 專案檔案
+## 跨設備使用
 
-- [index.html](./index.html)：網站頁面結構
-- [style.css](./style.css)：網站樣式
-- [script.js](./script.js)：登入、雲端資料同步、單字管理與測驗邏輯
-- [firebase-config.js](./firebase-config.js)：Firebase Web App 設定
+單字、筆記與 Star 會跟著你的帳戶保存。只要在其他設備開啟同一個網站，並使用相同的 Google 帳戶登入，就能繼續使用自己的資料。
 
-## 本機執行
-
-這個專案使用 ES Module 與 Firebase Web SDK，請使用本機 Web Server 開啟，不要直接雙擊 `index.html`。
-
-例如在專案資料夾執行：
-
-```bash
-python -m http.server 8000
-```
-
-然後用瀏覽器開啟：
-
-```text
-http://localhost:8000
-```
-
-也可以使用 VS Code 的 Live Server 擴充功能開啟 [index.html](./index.html)。
-
-## Firebase 設定
-
-Firebase Web 設定需放在 [firebase-config.js](./firebase-config.js)。目前專案已完成 Firebase Authentication 與 Firestore 的程式整合；若要在新的 Firebase 專案使用，請將 Firebase Console 提供的 Web App 設定填入該檔案，並在 Firebase Console：
-
-1. 啟用 Google Authentication。
-2. 建立 Cloud Firestore。
-3. 將目前使用的 Firestore 規則設定為只允許登入者讀寫自己的 `users/{uid}` 文件。
-4. 將網站網址加入 Authentication 的 Authorized domains。
-
-## 免費方案
-
-本專案可使用 Firebase Spark 免費方案。個人單字學習通常適合使用免費額度，但 Firebase 免費方案仍有儲存、讀寫與流量限制，請在 Firebase Console 的用量頁面查看目前使用量。
+不同 Google 帳戶的資料彼此獨立。

@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, deleteDoc, query, limit } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
 const firebaseConfigured = !firebaseConfig.apiKey.startsWith('請填入');
@@ -13,6 +13,8 @@ let currentUser = null;
 let units = [];
 let completedDates = [];
 let currentUnitIndex = -1;
+let quizWords = [];
+let quizScopeLabel = '';
 
 // 測驗狀態變數
 let currentMode = 0;
@@ -44,6 +46,75 @@ const bestStreakElement = document.getElementById('best-streak');
 const streakMessage = document.getElementById('streak-message');
 const calendarMonth = document.getElementById('calendar-month');
 const streakCalendar = document.getElementById('streak-calendar');
+const starSection = document.getElementById('star-section');
+const starUnitSelect = document.getElementById('star-unit-select');
+const starWordList = document.getElementById('star-word-list');
+const currentUnitLabel = document.getElementById('current-unit-label');
+const blockSection = document.getElementById('block-section');
+const uploadUnitBtn = document.getElementById('upload-unit-btn');
+const refreshBlockBtn = document.getElementById('refresh-block-btn');
+const blockUnitList = document.getElementById('block-unit-list');
+
+const DEFAULT_UNIT_NAME = '基本日期與星期';
+const DEFAULT_WORDS = [
+    ['一月', 'いちがつ', '1月'], ['二月', 'にがつ', '2月'], ['三月', 'さんがつ', '3月'],
+    ['四月', 'しがつ', '4月'], ['五月', 'ごがつ', '5月'], ['六月', 'ろくがつ', '6月'],
+    ['七月', 'しちがつ', '7月'], ['八月', 'はちがつ', '8月'], ['九月', 'くがつ', '9月'],
+    ['十月', 'じゅうがつ', '10月'], ['十一月', 'じゅういちがつ', '11月'],
+    ['十二月', 'じゅうにがつ', '12月'],
+    ['一日', 'ついたち', '第1天'], ['二日', 'ふつか', '第2天'], ['三日', 'みっか', '第3天'],
+    ['四日', 'よっか', '第4天'], ['五日', 'いつか', '第5天'], ['六日', 'むいか', '第6天'],
+    ['七日', 'なのか', '第7天'], ['八日', 'ようか', '第8天'], ['九日', 'ここのか', '第9天'],
+    ['十日', 'とおか', '第10天'],
+    ['十一日', 'じゅういちにち', '第11天'], ['十二日', 'じゅうににち', '第12天'],
+    ['十三日', 'じゅうさんにち', '第13天'], ['十四日', 'じゅうよっか', '第14天'],
+    ['十五日', 'じゅうごにち', '第15天'], ['十六日', 'じゅうろくにち', '第16天'],
+    ['十七日', 'じゅうしちにち', '第17天'], ['十八日', 'じゅうはちにち', '第18天'],
+    ['十九日', 'じゅうきゅうにち', '第19天'], ['二十日', 'はつか', '第20天'],
+    ['二十一日', 'にじゅういちにち', '第21天'], ['二十二日', 'にじゅうににち', '第22天'],
+    ['二十三日', 'にじゅうさんにち', '第23天'], ['二十四日', 'にじゅうよっか', '第24天'],
+    ['二十五日', 'にじゅうごにち', '第25天'], ['二十六日', 'にじゅうろくにち', '第26天'],
+    ['二十七日', 'にじゅうしちにち', '第27天'], ['二十八日', 'にじゅうはちにち', '第28天'],
+    ['二十九日', 'にじゅうきゅうにち', '第29天'], ['三十日', 'さんじゅうにち', '第30天'],
+    ['三十一日', 'さんじゅういちにち', '第31天'],
+    ['月曜日', 'げつようび', '星期一'], ['火曜日', 'かようび', '星期二'],
+    ['水曜日', 'すいようび', '星期三'], ['木曜日', 'もくようび', '星期四'],
+    ['金曜日', 'きんようび', '星期五'], ['土曜日', 'どようび', '星期六'],
+    ['日曜日', 'にちようび', '星期日']
+];
+
+function createDefaultUnit() {
+    return {
+        id: `default-dates-${Date.now()}`,
+        name: DEFAULT_UNIT_NAME,
+        words: DEFAULT_WORDS.map(([kanji, kana, zh]) => ({
+            jp: `${kanji}（${kana}）`,
+            zh,
+            note: '',
+            starred: false
+        }))
+    };
+}
+
+function migrateDefaultUnit(unit) {
+    const isLegacyDefault = unit.name === DEFAULT_UNIT_NAME &&
+        unit.words.length === DEFAULT_WORDS.length &&
+        unit.words[0].jp === '一月' &&
+        unit.words[11].jp === '十二月' &&
+        unit.words[12].jp === '1日' &&
+        unit.words[42].jp === '31日' &&
+        unit.words[43].jp === '月曜日' &&
+        unit.words[49].jp === '日曜日';
+    if (!isLegacyDefault) return false;
+
+    unit.words = DEFAULT_WORDS.map(([kanji, kana, zh], index) => ({
+        jp: `${kanji}（${kana}）`,
+        zh,
+        note: unit.words[index].note || '',
+        starred: unit.words[index].starred === true
+    }));
+    return true;
+}
 
 function getLocalDateKey(date = new Date()) {
     const year = date.getFullYear();
@@ -180,6 +251,8 @@ function init() {
 
     importCsvBtn.addEventListener('click', importCsvUnit);
     deleteUnitBtn.addEventListener('click', deleteCurrentUnit);
+    uploadUnitBtn.addEventListener('click', uploadCurrentUnit);
+    refreshBlockBtn.addEventListener('click', loadSharedUnits);
 
     // 註冊事件：選擇單元
     unitSelect.addEventListener('change', handleUnitChange);
@@ -193,7 +266,7 @@ function init() {
         const zh = zhInput.value.trim();
 
         if (jp && zh) {
-            units[currentUnitIndex].words.push({ jp, zh });
+            units[currentUnitIndex].words.push({ jp, zh, note: '', starred: false });
             saveData();
             renderWordList();
             jpInput.value = '';
@@ -206,8 +279,14 @@ function init() {
     document.querySelectorAll('.mode-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const mode = parseInt(e.target.dataset.mode);
-            startQuiz(mode);
+            startQuiz(mode, e.target.dataset.scope || 'current');
         });
+    });
+    document.querySelectorAll('.star-mode-btn').forEach(btn => {
+        btn.addEventListener('click', e => startQuiz(parseInt(e.target.dataset.mode), 'starred'));
+    });
+    starUnitSelect.addEventListener('change', () => {
+        renderStarArea();
     });
 
     // 註冊事件：測驗互動
@@ -233,9 +312,23 @@ async function loadCloudData(user) {
         const cloudData = snapshot.exists() ? snapshot.data() : {};
         const cloudUnits = cloudData.units;
         units = Array.isArray(cloudUnits) ? cloudUnits : [];
+        let createdDefaultUnit = false;
+        if (!units.some(unit => unit.name === DEFAULT_UNIT_NAME)) {
+            units.unshift(createDefaultUnit());
+            createdDefaultUnit = true;
+        }
+        units.forEach(unit => {
+            unit.words = Array.isArray(unit.words) ? unit.words : [];
+            migrateDefaultUnit(unit);
+            unit.words.forEach(word => {
+                word.note = typeof word.note === 'string' ? word.note : '';
+                word.starred = word.starred === true;
+            });
+        });
         completedDates = Array.isArray(cloudData.completedDates) ? cloudData.completedDates : [];
         updateUnitSelect();
         renderStreak();
+        if (createdDefaultUnit) await saveData();
     } catch (error) {
         console.error('載入雲端單字失敗：', error);
         alert(`無法載入雲端單字：${error.message}`);
@@ -265,6 +358,8 @@ async function handleAuthStateChanged(user) {
         updateUnitSelect();
         renderStreak();
         setEditorEnabled(false);
+        starSection.style.display = 'none';
+        blockSection.style.display = 'none';
         authStatus.textContent = '尚未登入';
         signInBtn.style.display = 'inline-block';
         signOutBtn.style.display = 'none';
@@ -275,19 +370,196 @@ async function handleAuthStateChanged(user) {
     signInBtn.style.display = 'none';
     signOutBtn.style.display = 'inline-block';
     setEditorEnabled(true);
+    starSection.style.display = 'block';
+    blockSection.style.display = 'block';
     await loadCloudData(user);
+    renderStarArea();
+    await loadSharedUnits();
 }
 
 function setEditorEnabled(enabled) {
-    document.querySelectorAll('#management-section input, #management-section select, #management-section button')
+    document.querySelectorAll('#management-section input, #management-section select, #management-section button, #block-section button')
         .forEach(element => {
             element.disabled = !enabled;
         });
     updateDeleteUnitButton();
 }
 
+function getPublicUnit(unit) {
+    return {
+        name: unit.name,
+        words: unit.words.map(word => ({ jp: word.jp, zh: word.zh }))
+    };
+}
+
+async function uploadCurrentUnit() {
+    if (!currentUser || currentUnitIndex === -1) {
+        alert('請先選擇要分享的單元。');
+        return;
+    }
+
+    const unit = units[currentUnitIndex];
+    if (unit.words.length === 0) {
+        alert('空白單元不能上傳。');
+        return;
+    }
+    if (!confirm(`確定要將「${unit.name}」分享給大家嗎？`)) return;
+
+    uploadUnitBtn.disabled = true;
+    try {
+        await addDoc(collection(db, 'sharedUnits'), {
+            ...getPublicUnit(unit),
+            ownerId: currentUser.uid,
+            ownerName: currentUser.displayName || '匿名學習者',
+            createdAt: new Date().toISOString()
+        });
+        alert(`已將「${unit.name}」上傳到公開 Block。`);
+        await loadSharedUnits();
+    } catch (error) {
+        console.error('上傳公開單元失敗：', error);
+        if (error.code === 'permission-denied') {
+            alert('上傳失敗：Firestore Rules 尚未允許登入者新增 sharedUnits。請到 Firebase Console 的 Firestore Database > Rules，加入 README 中的 sharedUnits 規則並按下發布。');
+        } else {
+            alert(`上傳失敗：${error.message}`);
+        }
+    } finally {
+        uploadUnitBtn.disabled = false;
+    }
+}
+
+async function loadSharedUnits() {
+    if (!currentUser || !db) return;
+    blockUnitList.textContent = '載入公開單元中...';
+    try {
+        const snapshot = await getDocs(query(collection(db, 'sharedUnits'), limit(100)));
+        const sharedUnits = snapshot.docs
+            .map(snapshotDoc => ({ id: snapshotDoc.id, ...snapshotDoc.data() }))
+            .filter(unit => typeof unit.name === 'string' && Array.isArray(unit.words))
+            .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+        renderSharedUnits(sharedUnits);
+    } catch (error) {
+        console.error('載入公開單元失敗：', error);
+        blockUnitList.textContent = `無法載入公開單元：${error.message}`;
+    }
+}
+
+function renderSharedUnits(sharedUnits) {
+    blockUnitList.innerHTML = '';
+    if (sharedUnits.length === 0) {
+        blockUnitList.textContent = '目前還沒有公開單元。';
+        return;
+    }
+
+    sharedUnits.forEach(sharedUnit => {
+        const item = document.createElement('div');
+        item.className = 'block-unit-item';
+        const title = document.createElement('strong');
+        title.textContent = `${sharedUnit.name}（${sharedUnit.words.length} 字）`;
+        const meta = document.createElement('span');
+        meta.textContent = `分享者：${sharedUnit.ownerName || '匿名'}`;
+        const downloadButton = document.createElement('button');
+        downloadButton.type = 'button';
+        downloadButton.className = 'download-unit-btn';
+        downloadButton.textContent = '下載到我的單元';
+        downloadButton.addEventListener('click', () => downloadSharedUnit(sharedUnit));
+        item.append(title, meta, downloadButton);
+
+        if (sharedUnit.ownerId === currentUser.uid) {
+            const withdrawButton = document.createElement('button');
+            withdrawButton.type = 'button';
+            withdrawButton.className = 'withdraw-unit-btn';
+            withdrawButton.textContent = '撤回上傳';
+            withdrawButton.addEventListener('click', () => withdrawSharedUnit(sharedUnit));
+            item.appendChild(withdrawButton);
+        }
+
+        blockUnitList.appendChild(item);
+    });
+}
+
+async function withdrawSharedUnit(sharedUnit) {
+    if (!currentUser || sharedUnit.ownerId !== currentUser.uid) {
+        alert('只有上傳者可以撤回這個公開單元。');
+        return;
+    }
+    if (!confirm(`確定要撤回公開單元「${sharedUnit.name}」嗎？其他人將無法再從 Block 下載這個單元。`)) {
+        return;
+    }
+
+    try {
+        await deleteDoc(doc(db, 'sharedUnits', sharedUnit.id));
+        await loadSharedUnits();
+    } catch (error) {
+        console.error('撤回公開單元失敗：', error);
+        if (error.code === 'permission-denied') {
+            alert('撤回失敗：目前的公開單元權限尚未允許上傳者刪除自己的分享，請更新 Firebase 設定。');
+        } else {
+            alert(`撤回失敗：${error.message}`);
+        }
+    }
+}
+
+async function downloadSharedUnit(sharedUnit) {
+    const importedUnit = {
+        id: Date.now(),
+        name: sharedUnit.name,
+        words: sharedUnit.words
+            .filter(word => word && typeof word.jp === 'string' && typeof word.zh === 'string')
+            .map(word => ({ jp: word.jp, zh: word.zh, note: '', starred: false }))
+    };
+    if (importedUnit.words.length === 0) {
+        alert('這個公開單元沒有可下載的單字。');
+        return;
+    }
+
+    units.push(importedUnit);
+    await saveData();
+    updateUnitSelect();
+    unitSelect.value = units.length - 1;
+    handleUnitChange();
+    alert(`已下載「${importedUnit.name}」到你的單元。`);
+}
+
 function updateDeleteUnitButton() {
     deleteUnitBtn.disabled = !currentUser || currentUnitIndex === -1;
+}
+
+function getStarredWords() {
+    return units.flatMap((unit, unitIndex) =>
+        unit.words.filter(word => word.starred).map(word => ({ word, unitIndex }))
+    );
+}
+
+function updateStarUnitSelect() {
+    const selectedValue = starUnitSelect.value;
+    starUnitSelect.innerHTML = '<option value="all">全部單元</option>';
+    units.forEach((unit, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        option.textContent = unit.name;
+        starUnitSelect.appendChild(option);
+    });
+    starUnitSelect.value = [...starUnitSelect.options].some(option => option.value === selectedValue)
+        ? selectedValue : 'all';
+}
+
+function renderStarArea() {
+    updateStarUnitSelect();
+    const selectedUnit = starUnitSelect.value;
+    const starred = getStarredWords().filter(item =>
+        selectedUnit === 'all' || String(item.unitIndex) === selectedUnit
+    );
+    starWordList.innerHTML = '';
+    if (starred.length === 0) {
+        starWordList.textContent = '目前沒有符合條件的 Star 單字。';
+        return;
+    }
+    starred.forEach(({ word, unitIndex }) => {
+        const item = document.createElement('div');
+        item.className = 'star-word-item';
+        item.textContent = `⭐ ${word.jp} - ${word.zh}（${units[unitIndex].name}）`;
+        starWordList.appendChild(item);
+    });
 }
 
 async function importCsvUnit() {
@@ -398,10 +670,12 @@ function handleUnitChange() {
         wordManagement.style.display = 'block';
         quizSelection.style.display = 'block';
         renderWordList();
+        currentUnitLabel.textContent = units[currentUnitIndex].name;
     } else {
         currentUnitIndex = -1;
         wordManagement.style.display = 'none';
         quizSelection.style.display = 'none';
+        currentUnitLabel.textContent = '';
     }
     updateDeleteUnitButton();
 }
@@ -420,6 +694,7 @@ async function deleteCurrentUnit() {
     updateUnitSelect();
     unitSelect.value = '';
     handleUnitChange();
+    renderStarArea();
 }
 
 function renderWordList() {
@@ -433,7 +708,46 @@ function renderWordList() {
         const li = document.createElement('li');
 
         const wordText = document.createElement('span');
-        wordText.textContent = `${word.jp} - ${word.zh}`;
+        wordText.className = 'word-text';
+        wordText.textContent = `${word.starred ? '⭐ ' : ''}${word.jp} - ${word.zh}`;
+
+        const detail = document.createElement('div');
+        detail.className = 'word-detail';
+        detail.hidden = true;
+        const noteInput = document.createElement('textarea');
+        noteInput.className = 'word-note';
+        noteInput.placeholder = '寫下這個單字的筆記...';
+        noteInput.value = word.note || '';
+        const saveNoteButton = document.createElement('button');
+        saveNoteButton.type = 'button';
+        saveNoteButton.className = 'save-note-btn';
+        saveNoteButton.textContent = '儲存筆記';
+        saveNoteButton.addEventListener('click', async event => {
+            event.stopPropagation();
+            word.note = noteInput.value.trim();
+            await saveData();
+            detail.hidden = true;
+        });
+        detail.append(noteInput, saveNoteButton);
+
+        wordText.addEventListener('click', () => {
+            detail.hidden = !detail.hidden;
+            if (!detail.hidden) noteInput.focus();
+        });
+
+        const starButton = document.createElement('button');
+        starButton.type = 'button';
+        starButton.className = 'star-word-btn';
+        starButton.textContent = word.starred ? '★' : '☆';
+        starButton.title = word.starred ? '取消 Star' : '標註 Star';
+        starButton.setAttribute('aria-label', starButton.title);
+        starButton.addEventListener('click', async event => {
+            event.stopPropagation();
+            word.starred = !word.starred;
+            await saveData();
+            renderWordList();
+            renderStarArea();
+        });
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
@@ -444,8 +758,10 @@ function renderWordList() {
             deleteWord(wordIndex);
         });
 
-        li.appendChild(wordText);
-        li.appendChild(deleteButton);
+        const wordActions = document.createElement('div');
+        wordActions.className = 'word-actions';
+        wordActions.append(starButton, deleteButton);
+        li.append(wordText, wordActions, detail);
         wordList.appendChild(li);
     });
     
@@ -471,6 +787,7 @@ function deleteWord(wordIndex) {
     renderWordList();
     updateUnitSelect();
     unitSelect.value = currentUnitIndex;
+    renderStarArea();
 }
 
 // 陣列洗牌演算法 (Fisher-Yates Shuffle)
@@ -484,9 +801,20 @@ function shuffle(array) {
     return array;
 }
 
-function startQuiz(mode) {
-    if (currentUnitIndex === -1) return;
-    const words = units[currentUnitIndex].words;
+function startQuiz(mode, scope = 'current') {
+    if (scope === 'current' && currentUnitIndex === -1) return;
+    const selected = scope === 'current'
+        ? units[currentUnitIndex].words.map(word => ({ word, unitIndex: currentUnitIndex }))
+        : scope === 'starred'
+            ? getStarredWords().filter(item =>
+                starUnitSelect.value === 'all' || String(item.unitIndex) === starUnitSelect.value)
+            : units.flatMap((unit, unitIndex) =>
+                unit.words.map(word => ({ word, unitIndex }))
+            );
+    const words = selected.map(item => item.word);
+    quizWords = selected;
+    quizScopeLabel = scope === 'current' ? units[currentUnitIndex].name :
+        scope === 'starred' ? 'Star 單字' : '全部單元';
     
     // 防呆：選擇題需要至少 4 個單字才能組成誘答選項
     if ((mode === 1 || mode === 2) && words.length < 4) {
@@ -500,9 +828,11 @@ function startQuiz(mode) {
 
     currentMode = mode;
     // 複製一份單字表並打亂順序，作為題庫佇列
-    quizQueue = shuffle([...words]);
+    quizQueue = shuffle([...selected]);
     
     managementSection.style.display = 'none';
+    starSection.style.display = 'none';
+    blockSection.style.display = 'none';
     quizSection.style.display = 'block';
     streakSection.style.display = 'none';
     
@@ -512,6 +842,8 @@ function startQuiz(mode) {
 function endQuiz() {
     managementSection.style.display = 'block';
     quizSection.style.display = 'none';
+    starSection.style.display = currentUser ? 'block' : 'none';
+    blockSection.style.display = currentUser ? 'block' : 'none';
     streakSection.style.display = 'block';
     updateUnitSelect();
     unitSelect.value = currentUnitIndex;
@@ -522,11 +854,14 @@ async function loadNextQuestion() {
         await recordStudyDay();
         alert('本單元測驗完成！');
         endQuiz();
+        renderStarArea();
         return;
     }
 
-    currentQuestion = quizQueue.pop();
-    document.getElementById('quiz-progress').textContent = `剩餘：${quizQueue.length + 1} 題`;
+    const question = quizQueue.pop();
+    currentQuestion = question.word;
+    document.getElementById('quiz-progress').textContent =
+        `${quizScopeLabel}｜剩餘：${quizQueue.length + 1} 題`;
     
     // 重置畫面狀態
     optionsContainer.innerHTML = '';
@@ -562,7 +897,7 @@ async function loadNextQuestion() {
 
 // 嚴格從「該單元」內抓取誘答選項
 function generateOptions(targetLang) {
-    const wordsInUnit = units[currentUnitIndex].words;
+    const wordsInUnit = quizWords.map(item => item.word);
     const correctAnswer = currentQuestion[targetLang];
     
     // 1. 建立誘答池：排除掉當前正確答案後，取出該單元內所有的該語言字彙

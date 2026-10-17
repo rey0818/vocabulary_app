@@ -48,10 +48,40 @@
 
                 <div class="card" id="quiz-selection" style="display: none;">
                     <h2>3. 測驗模式</h2>
+                    <p class="section-hint">目前單元：<span id="current-unit-label"></span></p>
                     <div class="button-group">
-                        <button class="mode-btn" data-mode="1">給中文選日文 (選擇題)</button>
-                        <button class="mode-btn" data-mode="2">給日文選中文 (選擇題)</button>
-                        <button class="mode-btn" data-mode="3">給中文拼日文 (拼寫題)</button>
+                        <button class="mode-btn" data-mode="1" data-scope="current">給中文選日文 (選擇題)</button>
+                        <button class="mode-btn" data-mode="2" data-scope="current">給日文選中文 (選擇題)</button>
+                        <button class="mode-btn" data-mode="3" data-scope="current">給中文拼日文 (拼寫題)</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="star-section" style="display: none;">
+                <div class="card star-card">
+                    <h2>⭐ Star 單字</h2>
+                    <p class="section-hint">收藏的單字可以集中複習，也可以選擇只測驗某個單元。</p>
+                    <select id="star-unit-select" aria-label="Star 測驗單元"></select>
+                    <div id="star-word-list" class="star-word-list"></div>
+                    <div class="star-quiz">
+                        <h3>Star 測驗模式</h3>
+                        <div class="button-group">
+                            <button class="star-mode-btn" data-mode="1">給中文選日文</button>
+                            <button class="star-mode-btn" data-mode="2">給日文選中文</button>
+                            <button class="star-mode-btn" data-mode="3">給中文拼日文</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="block-section" style="display: none;">
+                <div class="card block-card">
+                    <h2>📚 公開單元 Block</h2>
+                    <p class="section-hint">分享單元時只會公開單元名稱與日文、中文單字，不會公開你的筆記或 Star 狀態。</p>
+                    <button id="upload-unit-btn" type="button">上傳目前單元到 Block</button>
+                    <button id="refresh-block-btn" type="button" class="secondary-btn">重新整理</button>
+                    <div id="block-unit-list" class="block-unit-list">
+                        尚未載入公開單元。
                     </div>
                 </div>
             </section>

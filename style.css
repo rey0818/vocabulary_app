@@ -7,6 +7,99 @@
     --error-color: #e74c3c;
 }
 
+.star-card {
+    border-top: 4px solid #f5b041;
+}
+
+#star-unit-select {
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.star-word-list {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 10px;
+    color: #666;
+}
+
+.star-word-item {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-color);
+}
+
+.star-word-item:last-child {
+    border-bottom: 0;
+}
+
+.star-quiz {
+    margin-top: 18px;
+}
+
+.star-quiz h3 {
+    margin-bottom: 10px;
+    font-size: 1rem;
+}
+
+.block-card {
+    border-top: 4px solid #8e44ad;
+}
+
+.secondary-btn {
+    background-color: #7f8c8d;
+    margin-left: 6px;
+}
+
+.secondary-btn:hover {
+    background-color: #626e70;
+}
+
+.block-unit-list {
+    margin-top: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 10px;
+    color: #666;
+}
+
+.block-unit-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.block-unit-item:last-child {
+    border-bottom: 0;
+}
+
+.block-unit-item strong {
+    color: var(--text-color);
+}
+
+.block-unit-item span {
+    color: #888;
+    font-size: 0.9rem;
+    margin-right: auto;
+}
+
+.download-unit-btn {
+    padding: 7px 10px;
+    white-space: nowrap;
+}
+
+.withdraw-unit-btn {
+    padding: 7px 10px;
+    background-color: var(--error-color);
+    white-space: nowrap;
+}
+
+.withdraw-unit-btn:hover {
+    background-color: #c0392b;
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: var(--secondary-color);
@@ -150,6 +243,23 @@ header h1 {
         flex-direction: column;
         gap: 4px;
     }
+
+    .button-group {
+        flex-direction: column;
+    }
+
+    .block-unit-item {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .block-unit-item span {
+        margin-right: 0;
+    }
+
+    .secondary-btn {
+        margin: 8px 0 0;
+    }
 }
 
 h2 {
@@ -219,6 +329,11 @@ button:disabled {
     gap: 10px;
 }
 
+.section-hint {
+    color: #666;
+    margin-top: -4px;
+}
+
 .mode-btn {
     flex: 1;
 }
@@ -234,13 +349,56 @@ button:disabled {
     padding: 8px;
     border-bottom: 1px solid var(--border-color);
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
 }
 
-#word-list li span {
+.word-text {
+    flex: 1;
     overflow-wrap: anywhere;
+    cursor: pointer;
+    padding: 8px 0;
+}
+
+.word-text:hover {
+    color: var(--primary-color);
+}
+
+.word-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.star-word-btn {
+    background: #f5b041;
+    padding: 6px 10px;
+    font-size: 1.1rem;
+}
+
+.star-word-btn:hover {
+    background: #d68910;
+}
+
+.word-detail {
+    flex-basis: 100%;
+    padding: 8px 0 4px;
+}
+
+.word-note {
+    width: 100%;
+    min-height: 70px;
+    box-sizing: border-box;
+    resize: vertical;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font: inherit;
+}
+
+.save-note-btn {
+    margin-top: 8px;
+    padding: 7px 12px;
 }
 
 .delete-word-btn {
